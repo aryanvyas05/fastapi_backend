@@ -83,32 +83,35 @@ def link_store_item(link: StoreItemLink = Body(...)):
 
 @app.get("/products")
 def get_products():
-    conn = get_connection()
-    cursor = conn.cursor()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+    
+        cursor.execute("""
+            SELECT i."iId", i."Iname", i."Sprice", i."Category", COALESCE(si."Scount", 0)
+            FROM item i
+            LEFT JOIN store_item si ON i."iId" = si."iId"
+            WHERE si."sId" = 1
+        """)
+    
+        rows = cursor.fetchall()
+        conn.close()
+    
+        products = [
+            {
+                "iId": row[0],
+                "iName": row[1],
+                "sPrice": float(row[2]),
+                "category": row[3],
+                "quantity": row[4]
+            }
+            for row in rows
+        ]
 
-    cursor.execute("""
-        SELECT i."iId", i."Iname", i."Sprice", i."Category", COALESCE(si."Scount", 0)
-        FROM item i
-        LEFT JOIN store_item si ON i."iId" = si."iId"
-        WHERE si."sId" = 1
-    """)
-
-    rows = cursor.fetchall()
-    conn.close()
-
-    products = [
-        {
-            "iId": row[0],
-            "iName": row[1],
-            "sPrice": float(row[2]),
-            "category": row[3],
-            "quantity": row[4]
-        }
-        for row in rows
-    ]
-
-    return JSONResponse(content=products)
-
+        return JSONResponse(content=products)
+    except Exception as e:
+    # Handle any exception
+        print(f"An error occurred: {e}")
 @app.put("/products/{iId}")
 def update_product(iId: int = Path(...), updated_item: Item = Body(...)):
     conn = get_connection()
